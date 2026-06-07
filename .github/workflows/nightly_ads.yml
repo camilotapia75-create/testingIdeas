@@ -1,0 +1,41 @@
+name: Nightly Ad Generation
+
+on:
+  schedule:
+    # Runs at 2:00 AM UTC every night
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Also allows manual trigger from GitHub UI
+
+jobs:
+  generate-ads:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to commit generated ads back to repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Generate ads
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_ads.py
+
+      - name: Commit generated ads
+        run: |
+          git config user.name "Ad Agent"
+          git config user.email "ad-agent@noreply.github.com"
+          git add ads/
+          # Only commit if there are new ads
+          git diff --cached --quiet || git commit -m "chore: generated ads for $(date -u +%Y-%m-%d)"
+          git push

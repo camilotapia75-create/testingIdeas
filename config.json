@@ -1,0 +1,16 @@
+{
+  "websites": [
+    {
+      "name": "My Website",
+      "url": "https://example.com",
+      "description": "Describe your product or service here",
+      "target_audience": "Describe who you're targeting (e.g. busy professionals aged 25-40)",
+      "unique_value": "What makes you different from competitors",
+      "cta_goal": "sign up"
+    }
+  ],
+  "platforms": ["twitter", "instagram", "linkedin"],
+  "ads_per_run": 10,
+  "tone_preferences": ["conversational", "bold", "curiosity-driven"],
+  "brand_voice": "Write a sentence describing your brand voice (e.g. friendly but authoritative, like a knowledgeable friend)"
+}
