@@ -1,60 +1,68 @@
-# Autonomous Ad Agent
+# Autonomous Video Ad Agent
 
-This agent runs every night via GitHub Actions, generates high-quality social media ad copy using Claude, tracks which ad styles perform best, and gets smarter over time by biasing generation toward winning patterns.
-
-## Setup (5 minutes)
-
-### 1. Add your Anthropic API key as a GitHub Secret
-- Go to your repo → **Settings → Secrets and variables → Actions**
-- Click **New repository secret**
-- Name: `ANTHROPIC_API_KEY`
-- Value: your key from https://console.anthropic.com
-
-### 2. Configure your websites and products
-Edit `config.json` — add your website URLs, product descriptions, and target audiences.
-
-### 3. (Optional) Score your ads
-After posting ads, edit `performance.json` to record which ones got the best engagement (likes, clicks, conversions). The agent reads these scores and generates more ads in the style of your winners.
+Runs every night: generates AI video ads, posts them to Twitter/X, tracks engagement, and gets smarter over time.
 
 ## How it works
 
 ```
-Every night at 2am UTC:
-  1. Reads config.json (your websites/products)
-  2. Reads performance.json (which past ads scored highest)
-  3. Extracts winning patterns (hooks, CTAs, tone, length)
-  4. Generates 10 new social media ads biased toward those patterns
-  5. Saves them to ads/YYYY-MM-DD.json
-  6. Commits and pushes to the repo
+2:00am UTC — Nightly Video Ad Generation
+  1. Claude writes 3 video concepts based on your winning patterns
+  2. fal.ai (Kling AI) generates a real 5-10s vertical video per concept
+  3. Each video is auto-posted to your Twitter/X with caption + hashtags
+  4. Tweet IDs saved to tweet_log.json
+
+6:00am UTC — Engagement Tracker (runs 28hrs after posting)
+  1. Pulls real metrics from Twitter: impressions, likes, retweets, clicks
+  2. Auto-scores each ad 0-10 based on engagement rate
+  3. Saves scores to performance.json
+  4. Next night, the agent reads those scores and generates more ads
+     in the style of your winners
 ```
+
+The loop is fully autonomous. The longer it runs, the smarter it gets.
+
+## Setup
+
+### Step 1 — Anthropic API key
+- Get key: https://console.anthropic.com/settings/keys
+- Add GitHub secret: `ANTHROPIC_API_KEY`
+
+### Step 2 — fal.ai API key (video generation)
+- Sign up: https://fal.ai → Dashboard → API Keys
+- Add GitHub secret: `FAL_API_KEY`
+- Cost: ~$0.05–0.30 per video (3 videos/night = ~$0.15–0.90/night)
+
+### Step 3 — Twitter/X Developer keys (auto-posting)
+- Apply: https://developer.twitter.com/en/portal/dashboard
+- Create an app, generate all 4 keys
+- Add GitHub secrets:
+  - `TWITTER_API_KEY`
+  - `TWITTER_API_SECRET`
+  - `TWITTER_ACCESS_TOKEN`
+  - `TWITTER_ACCESS_SECRET`
+
+### Step 4 — Edit config.json
+Fill in your website, product description, target audience, CTA goal.
 
 ## File structure
 
 ```
-ads/                    # Generated ad copy, one file per day
-  2024-01-15.json
-  2024-01-16.json
-performance.json        # Your scores — edit this to teach the agent
-config.json             # Your websites, products, audiences
-generate_ads.py         # The agent script
+generate_video_ads.py       # Main pipeline: concept → video → post
+track_engagement.py         # Pulls Twitter metrics, auto-scores ads
+config.json                 # Your website/product info
+performance.json            # Auto-maintained scores (agent learns from this)
+tweet_log.json              # Auto-maintained log of posted tweets
+ads/                        # Daily log of generated concepts + status
 .github/workflows/
-  nightly_ads.yml       # GitHub Actions cron job
+  nightly_ads.yml           # 2am — generate + post
+  track_engagement.yml      # 6am — score engagement
+  score_ad.yml              # Manual scoring form (optional override)
 ```
 
-## Scoring ads
-
-Open `performance.json` and set scores (0–10) on any ads you've posted:
-
-```json
-{
-  "ads": [
-    {
-      "id": "2024-01-15-003",
-      "score": 9,
-      "notes": "Got 400 clicks, high CTR on Instagram"
-    }
-  ]
-}
-```
-
-The agent will automatically learn from scores ≥ 7 and replicate their style.
+## Costs per night
+| Service | Usage | Est. cost |
+|---|---|---|
+| Claude Opus (concepts) | ~2k tokens | ~$0.03 |
+| fal.ai Kling (3 videos) | 3 × 5s clips | ~$0.45 |
+| Twitter API | posting + metrics | Free |
+| **Total** | | **~$0.50/night** |
