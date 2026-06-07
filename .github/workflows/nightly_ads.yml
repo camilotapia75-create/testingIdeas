@@ -1,9 +1,10 @@
 name: Nightly Video Ad Generation
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 2am UTC every night
-  workflow_dispatch:      # Manual trigger from Actions tab
+  # PAUSED -- re-enable the schedule line below when you're ready to go live
+  # schedule:
+  #   - cron: '0 2 * * *'  # 2am UTC every night
+  workflow_dispatch:  # Manual trigger only for now
 
 jobs:
   generate-and-post:
