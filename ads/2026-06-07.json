@@ -1,0 +1,35 @@
+{
+  "date": "2026-06-07",
+  "ads": [
+    {
+      "id": "2026-06-07-v001",
+      "visual_prompt": "Cinematic vertical shot: a stylish young man walking through a vibrant downtown street at dusk, neon signs glowing pink and blue reflecting off wet pavement. He spots a bold concert flyer taped to a lamppost, stops, raises his phone, and snaps a photo. Quick push-in on the phone screen as a sleek calendar interface animates the event details filling in by themselves. He smiles, pockets the phone, and strides off confidently into the energetic nightlife crowd. Dynamic handheld motion, cinematic depth of field, saturated neon color palette.",
+      "caption": "One snap and I'm going out tonight \ud83d\udd25 No typing, no excuses. Your social life just got an upgrade \u2192 ezcalendar.vercel.app/calendar",
+      "hashtags": "#EzCalendar #NeverMissOut #NightLife #AICalendar",
+      "hook_type": "aspirational",
+      "strategy": "Tie the product to an exciting nightlife identity so the audience associates the app with being the person who never misses out.",
+      "status": "failed",
+      "error": "402 Payment Required\nYour enrolled account [2063715840713773056] does not have any credits to fulfill this request."
+    },
+    {
+      "id": "2026-06-07-v002",
+      "visual_prompt": "Fast-paced POV vertical video: hands holding a phone scrolling through a social feed in a cozy sunlit apartment, plants and string lights in the background. A bright event invite link appears on screen. The thumb copies the link and pastes it into a clean calendar app. Macro close-up as the screen springs to life, event title, time, and location populating instantly with a satisfying snap animation. The hands set the phone down and grab a denim jacket off a chair in one quick motion. Crisp morning light, shallow focus, smooth energetic camera moves.",
+      "caption": "Pasted a link, done. The AI did everything else \ud83e\udd2f Why is no one talking about this \u2192 ezcalendar.vercel.app/calendar",
+      "hashtags": "#EzCalendar #LifeHack #AICalendar #NeverMissOut",
+      "hook_type": "curiosity",
+      "strategy": "Demonstrate the second core input method (link paste) in a relatable everyday POV to broaden use-case appeal and spark intrigue.",
+      "status": "failed",
+      "error": "402 Payment Required\nYour enrolled account [2063715840713773056] does not have any credits to fulfill this request."
+    },
+    {
+      "id": "2026-06-07-v003",
+      "visual_prompt": "Split-energy cinematic vertical: a frustrated young woman at a kitchen table squints at a paper flyer, manually tapping a phone keyboard with an annoyed expression under flat dull gray lighting. Sudden whip-pan transition: the same woman now in golden warm light, effortlessly raising her phone to snap the flyer, the calendar filling itself in instantly. She leans back laughing with relief, sunlight bursting through the window behind her. Contrast between cold sluggish and warm vibrant tones, snappy transition, lively handheld motion.",
+      "caption": "Before vs after I stopped typing my whole life into a calendar \ud83d\ude05 This changes everything \u2192 ezcalendar.vercel.app/calendar",
+      "hashtags": "#EzCalendar #BeforeAndAfter #AICalendar #NeverMissOut",
+      "hook_type": "problem-solution",
+      "strategy": "Use a relatable pain point (tedious manual entry) and a satisfying transformation to make the value undeniable through contrast.",
+      "status": "failed",
+      "error": "402 Payment Required\nYour enrolled account [2063715840713773056] does not have any credits to fulfill this request."
+    }
+  ]
+}
