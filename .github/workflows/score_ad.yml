@@ -1,0 +1,70 @@
+name: Score an Ad
+
+on:
+  workflow_dispatch:
+    inputs:
+      ad_id:
+        description: 'Ad ID (e.g. 2024-01-15-003 — find it in ads/YYYY-MM-DD.json)'
+        required: true
+        type: string
+      score:
+        description: 'Score from 0 to 10 (7+ = winner the agent learns from)'
+        required: true
+        type: choice
+        options: ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0']
+      notes:
+        description: 'Optional notes (e.g. "300 clicks on Instagram, high saves")'
+        required: false
+        type: string
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update performance.json
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          from pathlib import Path
+
+          perf_file = Path("performance.json")
+          data = json.loads(perf_file.read_text())
+
+          ad_id   = "${{ github.event.inputs.ad_id }}".strip()
+          score   = int("${{ github.event.inputs.score }}")
+          notes   = "${{ github.event.inputs.notes }}".strip()
+
+          # Update existing entry or append new one
+          for entry in data["ads"]:
+              if entry["id"] == ad_id:
+                  entry["score"] = score
+                  if notes:
+                      entry["notes"] = notes
+                  print(f"Updated existing entry for {ad_id}")
+                  break
+          else:
+              new_entry = {"id": ad_id, "score": score}
+              if notes:
+                  new_entry["notes"] = notes
+              data["ads"].append(new_entry)
+              print(f"Added new entry for {ad_id}")
+
+          perf_file.write_text(json.dumps(data, indent=2))
+          print(f"Saved: {ad_id} => {score}/10" + (f" | {notes}" if notes else ""))
+          EOF
+
+      - name: Commit updated scores
+        run: |
+          git config user.name "Ad Agent"
+          git config user.email "ad-agent@noreply.github.com"
+          git add performance.json
+          git commit -m "perf: score ${{ github.event.inputs.ad_id }} = ${{ github.event.inputs.score }}/10"
+          git push
