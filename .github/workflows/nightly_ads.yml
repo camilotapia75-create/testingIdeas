@@ -38,6 +38,7 @@ jobs:
         run: |
           git config user.name "Ad Agent"
           git config user.email "ad-agent@noreply.github.com"
+          git pull --rebase origin main
           git add ads/ tweet_log.json
           git diff --cached --quiet || git commit -m "chore: video ads posted $(date -u +%Y-%m-%d)"
           git push
