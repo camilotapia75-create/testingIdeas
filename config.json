@@ -1,16 +1,16 @@
 {
   "websites": [
     {
-      "name": "My Website",
-      "url": "https://example.com",
-      "description": "Describe your product or service here",
-      "target_audience": "Describe who you're targeting (e.g. busy professionals aged 25-40)",
-      "unique_value": "What makes you different from competitors",
-      "cta_goal": "sign up"
+      "name": "ezCalendar",
+      "url": "https://ezcalendar.vercel.app/calendar",
+      "description": "An app that uses AI to automatically input dates, time and place to your custom activity calendar — just take a picture of a flyer on the street or paste a link and it does the rest.",
+      "target_audience": "Social butterflies and people who love going out, aged 18-45, who want to never miss a fun event again",
+      "unique_value": "Zero manual entry — snap a flyer or drop a link and AI instantly adds the event to your calendar. No other calendar app does this.",
+      "cta_goal": "create an account and use the app to make your life fun"
     }
   ],
   "platforms": ["twitter", "instagram", "linkedin"],
   "ads_per_run": 10,
   "tone_preferences": ["conversational", "bold", "curiosity-driven"],
-  "brand_voice": "Write a sentence describing your brand voice (e.g. friendly but authoritative, like a knowledgeable friend)"
+  "brand_voice": "Fun, energetic, and relatable — like that friend who always knows the best events happening in town and makes sure you never miss out"
 }
