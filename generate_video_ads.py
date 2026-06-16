@@ -193,6 +193,28 @@ def get_youtube_client():
     return build("youtube", "v3", credentials=creds)
 
 
+def print_active_channel(youtube) -> None:
+    """Print which channel the token will post to — confirm it's the right one on first run."""
+    try:
+        resp = youtube.channels().list(part="snippet,statistics", mine=True).execute()
+        items = resp.get("items", [])
+        if not items:
+            print("⚠️  Could not identify the active channel.")
+            return
+        ch = items[0]
+        name = ch["snippet"]["title"]
+        subs = ch.get("statistics", {}).get("subscriberCount", "?")
+        url = f"https://www.youtube.com/channel/{ch['id']}"
+        print("=" * 60)
+        print(f"▶ POSTING TO CHANNEL: {name}  (subs: {subs})")
+        print(f"  {url}")
+        print("  If this is the WRONG channel, re-do the OAuth step with the")
+        print("  correct channel selected, then update YOUTUBE_REFRESH_TOKEN.")
+        print("=" * 60)
+    except Exception as e:
+        print(f"⚠️  Channel check skipped: {e}")
+
+
 def ensure_playlist(youtube, log: dict) -> str:
     """Return the ad playlist ID, creating it once and caching the id in the log."""
     if log.get("playlist_id"):
@@ -286,6 +308,7 @@ def main():
     print(f"Got {len(concepts)} concepts.")
 
     youtube = get_youtube_client()
+    print_active_channel(youtube)
     playlist_id = ensure_playlist(youtube, youtube_log)
 
     results = []
