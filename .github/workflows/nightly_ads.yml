@@ -1,7 +1,7 @@
 name: Nightly Video Ad Generation
 
 on:
-  # PAUSED -- re-enable the schedule line below when you're ready to go live
+  # PAUSED -- uncomment the schedule lines below when YouTube auth is set up
   # schedule:
   #   - cron: '0 2 * * *'  # 2am UTC every night
   workflow_dispatch:  # Manual trigger only for now
@@ -22,22 +22,22 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install anthropic fal-client tweepy
+        run: pip install anthropic fal-client google-api-python-client google-auth-oauthlib
 
-      - name: Generate videos and post to Twitter
+      - name: Generate videos and post to YouTube Shorts
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_API_KEY }}
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: python generate_video_ads.py
 
       - name: Commit results
         run: |
           git config user.name "Ad Agent"
           git config user.email "ad-agent@noreply.github.com"
-          git add ads/ tweet_log.json
+          git pull --rebase origin main
+          git add ads/ youtube_log.json
           git diff --cached --quiet || git commit -m "chore: video ads posted $(date -u +%Y-%m-%d)"
-          git push
+          git push -u origin main

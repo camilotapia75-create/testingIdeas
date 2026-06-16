@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-Pulls engagement metrics for yesterday's tweets.
-Auto-scores them 0-10 and writes results to performance.json.
-The nightly agent reads performance.json to learn winning patterns.
+Runs 48 hours after a video is posted.
+Fetches real YouTube view/like/comment counts and auto-scores each video 0-10.
+Updates performance.json so the agent learns which ad styles win.
 """
 
 import json
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
-import tweepy
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
-TWEET_LOG = Path("tweet_log.json")
+YOUTUBE_LOG = Path("youtube_log.json")
 PERF_FILE = Path("performance.json")
 
 
@@ -22,92 +23,94 @@ def load_json(path: Path) -> dict:
     return {}
 
 
-def score_from_metrics(metrics: dict) -> int:
-    """Score 0-10 based on engagement rate. Clicks weighted highest."""
-    impressions = metrics.get("impression_count", 0)
-    likes = metrics.get("like_count", 0)
-    retweets = metrics.get("retweet_count", 0)
-    clicks = metrics.get("url_link_clicks", 0)
+def get_youtube_client():
+    creds = Credentials(
+        token=None,
+        refresh_token=os.environ["YOUTUBE_REFRESH_TOKEN"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=os.environ["YOUTUBE_CLIENT_ID"],
+        client_secret=os.environ["YOUTUBE_CLIENT_SECRET"],
+        scopes=["https://www.googleapis.com/auth/youtube.readonly"],
+    )
+    return build("youtube", "v3", credentials=creds)
 
-    if impressions == 0:
-        return 0
 
-    # Clicks = 3pts, retweets = 2pts, likes = 1pt
-    weighted = (clicks * 3 + retweets * 2 + likes) / impressions * 100
+def fetch_metrics(youtube, video_id: str) -> dict:
+    resp = youtube.videos().list(
+        part="statistics",
+        id=video_id,
+    ).execute()
+    if not resp.get("items"):
+        return {}
+    stats = resp["items"][0]["statistics"]
+    return {
+        "views": int(stats.get("viewCount", 0)),
+        "likes": int(stats.get("likeCount", 0)),
+        "comments": int(stats.get("commentCount", 0)),
+    }
 
-    if weighted >= 5:   return 10
-    if weighted >= 3:   return 8
-    if weighted >= 1.5: return 6
-    if weighted >= 0.5: return 4
-    return 2
+
+def score_video(metrics: dict) -> float:
+    """Score 0-10: views weighted most, then likes, then comments."""
+    views = metrics.get("views", 0)
+    likes = metrics.get("likes", 0)
+    comments = metrics.get("comments", 0)
+
+    # Tier thresholds for a new channel Shorts
+    view_score = min(views / 1000, 1.0) * 6   # up to 6pts for 1k+ views
+    like_score = min(likes / 50, 1.0) * 3     # up to 3pts for 50+ likes
+    comment_score = min(comments / 10, 1.0)   # up to 1pt for 10+ comments
+    return round(view_score + like_score + comment_score, 2)
 
 
 def main():
-    client = tweepy.Client(
-        consumer_key=os.environ["TWITTER_API_KEY"],
-        consumer_secret=os.environ["TWITTER_API_SECRET"],
-        access_token=os.environ["TWITTER_ACCESS_TOKEN"],
-        access_token_secret=os.environ["TWITTER_ACCESS_SECRET"],
-    )
-
-    tweet_log = load_json(TWEET_LOG)
+    youtube_log = load_json(YOUTUBE_LOG)
     performance = load_json(PERF_FILE)
     if "ads" not in performance:
         performance["ads"] = []
 
-    existing_ids = {e["id"] for e in performance["ads"]}
-    updated = 0
+    unchecked = [
+        v for v in youtube_log.get("videos", [])
+        if not v.get("metrics_checked") and v.get("youtube_id")
+    ]
 
-    for tweet in tweet_log.get("tweets", []):
-        if tweet.get("metrics_checked"):
+    if not unchecked:
+        print("No new videos to score.")
+        return
+
+    youtube = get_youtube_client()
+    print(f"Scoring {len(unchecked)} video(s)...")
+
+    for entry in unchecked:
+        video_id = entry["youtube_id"]
+        print(f"  Fetching metrics for {video_id}...")
+        metrics = fetch_metrics(youtube, video_id)
+        if not metrics:
+            print(f"  No data yet for {video_id}, skipping.")
             continue
 
-        posted_at = datetime.fromisoformat(tweet["posted_at"])
-        if datetime.now(timezone.utc) - posted_at < timedelta(hours=23):
-            print(f"  Skipping {tweet['id']} — not 24hrs old yet")
-            continue
+        score = score_video(metrics)
+        print(f"  Views={metrics['views']} Likes={metrics['likes']} Comments={metrics['comments']} -> Score {score}/10")
 
-        try:
-            response = client.get_tweet(
-                tweet["tweet_id"],
-                tweet_fields=["public_metrics", "non_public_metrics"],
-                user_auth=True,
-            )
-            metrics = {}
-            if response.data.public_metrics:
-                metrics.update(response.data.public_metrics)
-            if hasattr(response.data, "non_public_metrics") and response.data.non_public_metrics:
-                metrics.update(response.data.non_public_metrics)
+        performance["ads"].append({
+            "id": entry["id"],
+            "youtube_id": video_id,
+            "date": entry["date"],
+            "hook_type": entry.get("hook_type"),
+            "scene_template": entry.get("scene_template"),
+            "title": entry.get("title"),
+            "score": score,
+            "metrics": metrics,
+            "scored_at": datetime.now(timezone.utc).isoformat(),
+            "notes": "",
+        })
+        entry["metrics_checked"] = True
+        entry["score"] = score
+        entry["metrics"] = metrics
 
-            score = score_from_metrics(metrics)
-            notes = (
-                f"impressions={metrics.get('impression_count', 0)} "
-                f"likes={metrics.get('like_count', 0)} "
-                f"retweets={metrics.get('retweet_count', 0)} "
-                f"clicks={metrics.get('url_link_clicks', 0)}"
-            )
-
-            if tweet["id"] not in existing_ids:
-                performance["ads"].append({
-                    "id": tweet["id"],
-                    "tweet_id": tweet["tweet_id"],
-                    "score": score,
-                    "notes": notes,
-                    "hook_type": tweet.get("hook_type"),
-                    "auto_scored": True,
-                })
-                existing_ids.add(tweet["id"])
-                updated += 1
-                print(f"  Scored {tweet['id']}: {score}/10 — {notes}")
-
-            tweet["metrics_checked"] = True
-
-        except Exception as e:
-            print(f"  Could not fetch metrics for {tweet['tweet_id']}: {e}")
-
+    YOUTUBE_LOG.write_text(json.dumps(youtube_log, indent=2))
     PERF_FILE.write_text(json.dumps(performance, indent=2))
-    TWEET_LOG.write_text(json.dumps(tweet_log, indent=2))
-    print(f"\nEngagement tracking done. {updated} new scores saved.")
+    print("Done. performance.json updated.")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
-name: Track Ad Engagement
+name: Track YouTube Engagement
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # 6am UTC — scores yesterday's videos after 28hrs
+    - cron: '0 6 * * *'  # 6am UTC daily -- scores videos posted 48+ hrs ago
   workflow_dispatch:
 
 jobs:
@@ -21,20 +21,20 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install tweepy
+        run: pip install google-api-python-client google-auth-oauthlib
 
-      - name: Pull engagement metrics
+      - name: Fetch metrics and score videos
         env:
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: python track_engagement.py
 
       - name: Commit updated scores
         run: |
           git config user.name "Ad Agent"
           git config user.email "ad-agent@noreply.github.com"
-          git add performance.json tweet_log.json
-          git diff --cached --quiet || git commit -m "perf: auto-scored engagement $(date -u +%Y-%m-%d)"
-          git push
+          git pull --rebase origin main
+          git add youtube_log.json performance.json
+          git diff --cached --quiet || git commit -m "chore: engagement scores updated $(date -u +%Y-%m-%d)"
+          git push -u origin main
