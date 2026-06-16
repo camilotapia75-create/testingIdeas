@@ -1,32 +1,24 @@
 #!/usr/bin/env python3
 """
-One-time setup script — run this LOCALLY on your laptop (not in GitHub Actions).
+One-time setup — run LOCALLY on your laptop (not in GitHub Actions), OR use the
+browser-only OAuth Playground method your assistant gave you.
 
-It opens a browser for you to log in to Google and authorize the YouTube upload
-permission. After you approve, it prints three values to paste as GitHub secrets:
+It authorizes the YouTube permissions the agent needs (upload + comment + playlist)
+and prints the three values to paste as GitHub secrets:
   YOUTUBE_CLIENT_ID
   YOUTUBE_CLIENT_SECRET
   YOUTUBE_REFRESH_TOKEN
 
-Prerequisites:
-  pip install google-auth-oauthlib google-api-python-client
-
-Usage:
-  1. Go to https://console.cloud.google.com/
-  2. Create a project (or use an existing one)
-  3. Enable "YouTube Data API v3" in APIs & Services > Library
-  4. Go to APIs & Services > Credentials > Create Credentials > OAuth client ID
-  5. Application type: Desktop app  (NOT Web application)
-  6. Download the JSON file and save it as client_secret.json in this folder
-  7. Run: python setup_youtube_auth.py
-  8. Copy the three printed values into GitHub Secrets
+Prereqs:  pip install google-auth-oauthlib google-api-python-client
+Then put your downloaded client_secret.json next to this file and run it.
 """
 
 import json
 from pathlib import Path
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# force-ssl covers uploading, commenting, and managing playlists with one token.
+SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 CLIENT_SECRET_FILE = "client_secret.json"
 
 if not Path(CLIENT_SECRET_FILE).exists():

@@ -4,7 +4,9 @@ Video ad pipeline:
 1. Claude writes 3 video concepts based on winning patterns
 2. fal.ai (Kling) generates a real 5-second vertical video per concept
 3. YouTube Data API v3 uploads each video as a YouTube Short
-4. Video IDs saved to youtube_log.json for engagement tracking
+4. Maximize-views layer: SEO description, creator comment w/ clickable link,
+   add to a playlist, hashtags-above-title ordering
+5. Video IDs saved to youtube_log.json for engagement tracking
 """
 
 import json
@@ -26,10 +28,16 @@ PERF_FILE = Path("performance.json")
 YOUTUBE_LOG = Path("youtube_log.json")
 ADS_DIR = Path("ads")
 
-# These hashtags are added to EVERY video description.
-# #Shorts is mandatory -- YouTube uses it to classify and surface videos in the Shorts feed.
-# The others target the exact audience (people who love going out, 18-35).
-BASE_HASHTAGS = "#Shorts #EzCalendar #AICalendar #NeverMissOut #CityLife #WeekendVibes #EventPlanning #LifeHack #ProductivityTok"
+# Broad scope so we can upload AND comment AND manage playlists with one token.
+SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+
+# Name of the playlist all ads get added to (boosts session watch-time).
+PLAYLIST_TITLE = "ezCalendar — Plan Your Life"
+
+# The first 3 hashtags render ABOVE the title in the Shorts player, so put the
+# strongest discovery tags first. #Shorts is mandatory to land in the Shorts feed.
+LEAD_HASHTAGS = "#Shorts #AICalendar #NeverMissOut"
+EXTRA_HASHTAGS = "#EzCalendar #CityLife #WeekendVibes #EventPlanning #LifeHack #ProductivityTok #FOMO"
 
 SCENE_TEMPLATES = """
 PROVEN SCENE TEMPLATES FOR EZCALENDAR ADS (pick the best fit per concept):
@@ -63,6 +71,8 @@ KLING AI PROMPT RULES (always follow these for best results):
 - NEVER mention text, words, logos, or UI overlays — Kling cannot render readable text
 - Focus on EMOTION and MOTION — what does the person FEEL, how does the camera MOVE
 - Use "vertical 9:16 framing" explicitly in every prompt
+- DESIGN FOR A SEAMLESS LOOP: the last frame should flow naturally into the first frame so the
+  Short replays without a visible cut — replays are a top ranking signal on Shorts
 - End every prompt with the quality keywords: "cinematic, 4K, smooth motion, photorealistic"
 """
 
@@ -74,8 +84,10 @@ YOUTUBE SHORTS SEO RULES (critical for discoverability):
 - Description line 1 = the hook (shown as preview text before someone taps) — make it irresistible
 - Description line 2 = the value prop in one sentence
 - Description line 3 = CTA with the URL
+- pinned_comment = a short, friendly comment WE post as the creator in the first seconds. It must
+  ask an engaging question to bait replies (comments are a huge first-hour ranking signal) AND
+  include the URL as a tappable link. Max 200 chars.
 - Use power words that trigger curiosity: "this app", "why didn't I know about this", "changed my life"
-- Tags should mix broad terms (calendar, productivity) with niche terms (event planning app, ai calendar)
 - Avoid clickbait that doesn't deliver — YouTube punishes high click-through with low watch time
 """
 
@@ -118,8 +130,8 @@ BRAND VOICE: {config.get('brand_voice', 'fun and energetic')}
 
 YOUR TASK:
 - Write 3 concepts, each using a DIFFERENT scene template and hook type
-- The visual_prompt must follow ALL Kling AI prompt rules above
-- Follow ALL YouTube SEO rules for title and description
+- The visual_prompt must follow ALL Kling AI prompt rules above (including the seamless loop)
+- Follow ALL YouTube SEO rules for title, description, and pinned_comment
 - Spread hook types: curiosity, pain_point, and aspirational across the 3 concepts
 - Today's date: {today}
 
@@ -129,19 +141,20 @@ Return ONLY valid JSON, no markdown, no explanation:
     {{
       "id": "{today}-v001",
       "scene_template": "THE SNAP MOMENT",
-      "visual_prompt": "Vertical 9:16 close-up, golden hour warm light, a stylish woman's hand raises a smartphone toward a vibrant pink concert flyer stuck to a weathered brick wall. Shallow depth of field, bokeh background of a busy city street. Slow-motion snap, then smooth push-in on the phone screen as a clean calendar interface animates event details filling in automatically. Warm orange and pink tones, tactile and satisfying. Cinematic, 4K, smooth motion, photorealistic.",
+      "visual_prompt": "Vertical 9:16 close-up, golden hour warm light, a stylish woman's hand raises a smartphone toward a vibrant pink concert flyer on a brick wall. Shallow depth of field, city bokeh. Slow-motion snap, smooth push-in on the phone as a calendar animates filling in. The final frame eases back to the opening hand pose for a seamless loop. Warm orange and pink tones. Cinematic, 4K, smooth motion, photorealistic.",
       "title": "This app planned my whole weekend in 2 seconds",
       "description": "I snapped a flyer and AI filled my entire calendar instantly. Zero typing, zero forgetting. Free at ezcalendar.vercel.app/calendar",
+      "pinned_comment": "Wait til you see how fast this is 😮 What event would YOU add first? Try it free → ezcalendar.vercel.app/calendar",
       "tags": ["ai calendar", "event planning app", "productivity app", "calendar app", "never miss out", "weekend plans", "city life", "ezcalendar"],
       "hook_type": "curiosity",
-      "strategy": "Front-load the payoff in the title so it stops the scroll, then description delivers the proof."
+      "strategy": "Front-load the payoff in the title to stop the scroll, bait comments with a question in the pinned comment."
     }}
   ]
 }}"""
 
     msg = client.messages.create(
         model="claude-opus-4-8",
-        max_tokens=2048,
+        max_tokens=2560,
         messages=[{"role": "user", "content": prompt}],
     )
     raw = msg.content[0].text.strip().replace("```json", "").replace("```", "").strip()
@@ -175,56 +188,80 @@ def get_youtube_client():
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.environ["YOUTUBE_CLIENT_ID"],
         client_secret=os.environ["YOUTUBE_CLIENT_SECRET"],
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+        scopes=SCOPES,
     )
     return build("youtube", "v3", credentials=creds)
 
 
+def ensure_playlist(youtube, log: dict) -> str:
+    """Return the ad playlist ID, creating it once and caching the id in the log."""
+    if log.get("playlist_id"):
+        return log["playlist_id"]
+    print(f"  Creating playlist '{PLAYLIST_TITLE}'...")
+    resp = youtube.playlists().insert(
+        part="snippet,status",
+        body={
+            "snippet": {"title": PLAYLIST_TITLE, "description": "Plan your life with ezCalendar. ezcalendar.vercel.app/calendar"},
+            "status": {"privacyStatus": "public"},
+        },
+    ).execute()
+    log["playlist_id"] = resp["id"]
+    return resp["id"]
+
+
+def add_to_playlist(youtube, playlist_id: str, video_id: str) -> None:
+    try:
+        youtube.playlistItems().insert(
+            part="snippet",
+            body={"snippet": {"playlistId": playlist_id, "resourceId": {"kind": "youtube#video", "videoId": video_id}}},
+        ).execute()
+        print("  Added to playlist.")
+    except Exception as e:
+        print(f"  (playlist add skipped: {e})")
+
+
+def post_creator_comment(youtube, video_id: str, text: str) -> None:
+    """Post a top-level comment as the channel owner to bait first-hour engagement."""
+    try:
+        youtube.commentThreads().insert(
+            part="snippet",
+            body={"snippet": {"videoId": video_id, "topLevelComment": {"snippet": {"textOriginal": text}}}},
+        ).execute()
+        print("  Posted creator comment with link.")
+    except Exception as e:
+        print(f"  (creator comment skipped: {e})")
+
+
 def build_description(concept: dict, site: dict) -> str:
-    """Build SEO-optimized description with mandatory #Shorts hashtag."""
+    """SEO description: lead hashtags (render above title) + body + URL + extra hashtags."""
     desc = concept["description"].rstrip()
-    # Ensure the URL is in the description
     if site["url"] not in desc:
         desc += f"\n{site['url']}"
-    # Append hashtags -- #Shorts MUST be here for YouTube to surface in Shorts feed
-    desc += f"\n\n{BASE_HASHTAGS}"
-    return desc
+    # Lead hashtags at top so the strongest ones surface above the title in the player
+    return f"{LEAD_HASHTAGS}\n\n{desc}\n\n{EXTRA_HASHTAGS}"
 
 
-def post_to_youtube(concept: dict, site: dict, video_path: str) -> str:
+def post_to_youtube(youtube, concept: dict, site: dict, video_path: str) -> str:
     """Upload video as a YouTube Short, return video ID."""
-    youtube = get_youtube_client()
     description = build_description(concept, site)
-
     body = {
         "snippet": {
             "title": concept["title"],
             "description": description,
-            # Tags: combine concept-specific tags with always-on discovery tags
             "tags": concept.get("tags", []) + ["shorts", "short", "ezcalendar", "ai", "calendar", "productivity"],
-            "categoryId": "22",  # People & Blogs -- best fit for lifestyle/productivity
+            "categoryId": "22",  # People & Blogs
             "defaultLanguage": "en",
         },
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False,
-        },
+        "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
     }
-
     media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True)
     print(f"  Uploading: {concept['title']}")
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body=body,
-        media_body=media,
-    )
-
+    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
             print(f"  Upload progress: {int(status.progress() * 100)}%")
-
     video_id = response["id"]
     print(f"  Posted! https://www.youtube.com/shorts/{video_id}")
     return video_id
@@ -248,6 +285,9 @@ def main():
     concepts = generate_video_concepts(config, winning_context, today)
     print(f"Got {len(concepts)} concepts.")
 
+    youtube = get_youtube_client()
+    playlist_id = ensure_playlist(youtube, youtube_log)
+
     results = []
     for i, concept in enumerate(concepts, 1):
         print(f"\n[{i}/{len(concepts)}] {concept['hook_type']} — {concept['id']}")
@@ -256,7 +296,12 @@ def main():
 
         try:
             video_path = generate_video(concept["visual_prompt"])
-            video_id = post_to_youtube(concept, site, video_path)
+            video_id = post_to_youtube(youtube, concept, site, video_path)
+            # Maximize-views layer
+            add_to_playlist(youtube, playlist_id, video_id)
+            comment = concept.get("pinned_comment") or f"Try it free → {site['url']}"
+            post_creator_comment(youtube, video_id, comment)
+
             concept["youtube_id"] = video_id
             concept["status"] = "posted"
             youtube_log["videos"].append({

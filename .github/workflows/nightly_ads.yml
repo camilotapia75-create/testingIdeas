@@ -1,9 +1,11 @@
 name: Nightly Video Ad Generation
 
 on:
-  # PAUSED -- uncomment the schedule lines below when YouTube auth is set up
+  # PAUSED -- uncomment the schedule line below once YouTube auth secrets are set.
+  # Time is chosen for peak US engagement: 23:00 UTC = 7pm ET / 4pm PT,
+  # so videos are fresh when the 18-35 crowd is scrolling after work/school.
   # schedule:
-  #   - cron: '0 2 * * *'  # 2am UTC every night
+  #   - cron: '0 23 * * *'
   workflow_dispatch:  # Manual trigger only for now
 
 jobs:
