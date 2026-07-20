@@ -7,7 +7,7 @@
 <meta name="description" content="Procedurally modeled 3D product viewer — perfectly smooth lathe geometry, real metallic band, crisp logo. Orbit, zoom, pan." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -483,7 +483,7 @@ controls.maxPolarAngle = Math.PI * 0.55;      /* keep the camera above the gloss
 controls.minDistance = 1.1;
 controls.maxDistance = 9;
 controls.autoRotate = !prefersReduced;
-controls.autoRotateSpeed = 0.8;
+controls.autoRotateSpeed = 1.7;
 
 /* low camera like the photograph — the surface line falls near the base */
 const homeTarget = new THREE.Vector3(0, 1.02, 0);
