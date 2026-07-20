@@ -231,14 +231,14 @@ const wand = new THREE.Group();
 scene.add(wand);
 
 const bodyMat = new THREE.MeshPhysicalMaterial({
-  color: 0x7d1420,               /* deep matte crimson */
-  roughness: 0.55,
+  color: 0x6b1019,               /* deep matte crimson, darker like the shot */
+  roughness: 0.58,
   metalness: 0.0,
-  clearcoat: 0.25,
-  clearcoatRoughness: 0.6,
-  sheen: 0.4,
-  sheenColor: 0xb03040,
-  envMapIntensity: 0.55,
+  clearcoat: 0.22,
+  clearcoatRoughness: 0.65,
+  sheen: 0.35,
+  sheenColor: 0xa02838,
+  envMapIntensity: 0.4,
 });
 const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 128), bodyMat);
 wand.add(body);
@@ -281,30 +281,40 @@ function makeLogoTexture() {
   c.width = 1024; c.height = 1024;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, 1024, 1024);
-  const gold = '#eabf92';
+  const gold = '#f0cfa6';
   ctx.fillStyle = gold;
   ctx.strokeStyle = gold;
   ctx.textAlign = 'center';
 
-  /* crest: crescent ring with a break, echoing the mark in the artwork */
+  /* crest: circular emblem of two tapered feather strokes with a gap at the top,
+     echoing the mark in the artwork */
+  function taperedArc(cx, cy, r, a0, a1, wMax) {
+    const steps = 40;
+    for (let i = 0; i < steps; i++) {
+      const t0 = i / steps, t1 = (i + 1) / steps;
+      /* width swells in the middle of the stroke, tapers at the tips */
+      const w = wMax * Math.sin(Math.PI * ((t0 + t1) / 2)) ** 0.6;
+      ctx.lineWidth = Math.max(w, 1.5);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0 + (a1 - a0) * t0, a0 + (a1 - a0) * t1);
+      ctx.stroke();
+    }
+  }
   ctx.save();
-  ctx.translate(512, 300);
-  ctx.lineWidth = 26;
+  ctx.translate(512, 356);
   ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(0, 0, 78, Math.PI * 0.82, Math.PI * 2.38);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(26, -12, 52, Math.PI * 1.05, Math.PI * 1.95);
-  ctx.stroke();
+  /* outer sweep — near-full circle opening at the top */
+  taperedArc(0, 0, 62, Math.PI * -0.45, Math.PI * 1.42, 15);
+  /* inner sweep — offset crescent inside */
+  taperedArc(5, -5, 40, Math.PI * -0.2, Math.PI * 1.0, 10);
   ctx.restore();
 
-  /* wordmark */
+  /* wordmark — compact lockup like the artwork */
   const serif = '"Cormorant Garamond", Georgia, "Times New Roman", serif';
-  ctx.font = `600 132px ${serif}`;
-  drawSpaced(ctx, 'LUMINA', 512, 560, 26);
-  ctx.font = `500 84px ${serif}`;
-  drawSpaced(ctx, 'VITA', 512, 692, 40);
+  ctx.font = `600 138px ${serif}`;
+  drawSpaced(ctx, 'LUMINA', 512, 580, 20);
+  ctx.font = `500 74px ${serif}`;
+  drawSpaced(ctx, 'VITA', 512, 682, 52);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -324,7 +334,7 @@ function drawSpaced(ctx, text, cx, y, spacing) {
 let logoMesh = null;
 function buildLogo() {
   if (logoMesh) { wand.remove(logoMesh); logoMesh.geometry.dispose(); }
-  const LOGO_MID = 0.30, LOGO_H = 0.24;        /* placement on the body, normalized */
+  const LOGO_MID = 0.275, LOGO_H = 0.22;       /* placement on the body — just above the band */
   const r = rAt(LOGO_MID) * H + 0.004;
   const arc = 0.9;                              /* radians of wrap */
   const geo = new THREE.CylinderGeometry(r, r, LOGO_H * H, 64, 1, true, -arc / 2, arc);
@@ -351,7 +361,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildLogo)
 /* ─── stage: glossy floor, mirrored reflection, red glow, smoke ─── */
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshStandardMaterial({ color: 0x070304, roughness: 0.5, metalness: 0.15, transparent: true, opacity: 0.88 })
+  new THREE.MeshStandardMaterial({ color: 0x050203, roughness: 0.65, metalness: 0.1, transparent: true, opacity: 0.72, envMapIntensity: 0.08 })
 );
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
@@ -362,7 +372,7 @@ mirror.traverse((o) => {
   if (o.isMesh) {
     o.material = o.material.clone();
     o.material.transparent = true;
-    o.material.opacity = 0.16;
+    o.material.opacity = 0.45;      /* seen through the semi-opaque floor ≈ soft visible reflection */
     o.material.depthWrite = false;
   }
 });
@@ -380,9 +390,9 @@ function radialTex(stops) {
   return new THREE.CanvasTexture(c);
 }
 const glowTex = radialTex([[0, 'rgba(255,60,60,.9)'], [0.35, 'rgba(190,25,40,.42)'], [1, 'rgba(190,25,40,0)']]);
-const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.85, depthWrite: false }));
-glow.scale.setScalar(7.5);
-glow.position.set(0, 0.9, -2.6);
+const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.9, depthWrite: false }));
+glow.scale.set(7.2, 5.6, 1);
+glow.position.set(0, 0.35, -2.6);       /* pooled low — the upper backdrop stays near-black */
 scene.add(glow);
 
 /* the glow's reflection in the floor — hides the hard horizon seam.
@@ -410,7 +420,8 @@ function smokeTex() {
   c.width = c.height = 256;
   const ctx = c.getContext('2d');
   for (let i = 0; i < 14; i++) {
-    const x = 40 + Math.random() * 176, y = 40 + Math.random() * 176, r = 30 + Math.random() * 60;
+    /* keep blobs well inside the canvas so the sprite edge never shows */
+    const x = 78 + Math.random() * 100, y = 78 + Math.random() * 100, r = 24 + Math.random() * 42;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, 'rgba(220,120,120,.05)');
     g.addColorStop(1, 'rgba(220,120,120,0)');
@@ -421,9 +432,10 @@ function smokeTex() {
 }
 const smokes = [];
 for (let i = 0; i < (isMobile ? 3 : 5); i++) {
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), transparent: true, opacity: 0.55, depthWrite: false }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), transparent: true, opacity: 0.8, depthWrite: false }));
   s.scale.setScalar(5 + Math.random() * 4);
-  s.position.set((Math.random() - 0.5) * 7, 1 + Math.random() * 2.5, -1.5 - Math.random() * 2.5);
+  /* wisps hug the upper corners like the shot */
+  s.position.set((i % 2 ? 1 : -1) * (2 + Math.random() * 2.2), 1.6 + Math.random() * 2.2, -1.5 - Math.random() * 2.5);
   s.userData = { r: Math.random() * Math.PI * 2, sp: 0.02 + Math.random() * 0.03 };
   scene.add(s);
   smokes.push(s);
@@ -447,16 +459,20 @@ const dust = new THREE.Points(dGeo, new THREE.PointsMaterial({
 scene.add(dust);
 
 /* ─── lighting: crimson backlight, warm key, cool rim ─── */
-scene.add(new THREE.AmbientLight(0x2a1216, 1.5));
-const back = new THREE.PointLight(0xff2836, 55, 30);
-back.position.set(0, 0.9, -2.4);
+scene.add(new THREE.AmbientLight(0x241014, 1.0));
+const back = new THREE.PointLight(0xff2836, 70, 30);
+back.position.set(0, 0.55, -2.2);       /* hot core low behind the base, like the shot */
 scene.add(back);
-const keyL = new THREE.DirectionalLight(0xffe6da, 1.15);
+const keyL = new THREE.DirectionalLight(0xffe6da, 0.7);
 keyL.position.set(2.5, 5, 3.5);
 scene.add(keyL);
-const rim = new THREE.PointLight(0xff8f6b, 8, 16);
+const rim = new THREE.PointLight(0xff8f6b, 6, 16);
 rim.position.set(-3, 2, 1.5);
 scene.add(rim);
+/* small warm glint so the metal band catches a crisp highlight */
+const glint = new THREE.PointLight(0xfff2e0, 6, 5);
+glint.position.set(0.9, 0.4, 1.7);
+scene.add(glint);
 
 /* ─── controls — full orbit, zoom, pan ─── */
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -469,8 +485,9 @@ controls.maxDistance = 9;
 controls.autoRotate = !prefersReduced;
 controls.autoRotateSpeed = 0.8;
 
-const homeTarget = new THREE.Vector3(0, 1.0, 0);
-const homePos = new THREE.Vector3(0.35, 1.15, 3.1);
+/* low camera like the photograph — the surface line falls near the base */
+const homeTarget = new THREE.Vector3(0, 1.02, 0);
+const homePos = new THREE.Vector3(0.3, 0.62, 3.0);
 
 let idleTimer = null;
 controls.addEventListener('start', () => {
